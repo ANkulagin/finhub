@@ -20,9 +20,9 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.6
 
-      - name: Lint (non-blocking) #todo delete "|| echo "Linter warnings ignored (exit code $?)"
+      - name: Lint
         run: |
-          $(go env GOPATH)/bin/golangci-lint run || echo "Linter warnings ignored (exit code $?)"
+          $(go env GOPATH)/bin/golangci-lint run
 
       - name: Run tests
         run: go test ./...
