@@ -4,6 +4,7 @@ networks:
     name: finhub-network
 
 volumes:
+  # Data volumes
   postgres_data:
     name: finhub_postgres_data
   redis_data:
@@ -26,14 +27,176 @@ volumes:
     name: finhub_pgadmin_data
   redisinsight_data:
     name: finhub_redisinsight_data
-  go_modules:
-    name: finhub_go_modules
   zookeeper_data:
     name: finhub_zookeeper_data
   zookeeper_log_data:
     name: finhub_zookeeper_log_data
+  # Go modules cache for each service
+  go_modules_auth:
+    name: finhub_go_modules_auth
+  go_modules_profile:
+    name: finhub_go_modules_profile
+  go_modules_expense:
+    name: finhub_go_modules_expense
+  go_modules_budget:
+    name: finhub_go_modules_budget
+  go_modules_notification:
+    name: finhub_go_modules_notification
+  go_modules_obsidian:
+    name: finhub_go_modules_obsidian
+  go_modules_gateway:
+    name: finhub_go_modules_gateway
 
 services:
+  #-------------------------------------------------
+  # Main application services
+  #-------------------------------------------------
+
+  gateway-svc:
+    build:
+      context: ./services/gateway-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    container_name: finhub-gateway-svc
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+      - "2345:2345" # Delve debugger
+    environment:
+      - GO_ENV=development
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/gateway-svc:/app
+      - go_modules_gateway:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - auth-svc
+      - profile-svc
+      - expense-svc
+      - budget-svc
+      - notification-svc
+      - obsidian-sync-svc
+
+  auth-svc:
+    build:
+      context: ./services/auth-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    container_name: finhub-auth-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=auth
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/auth-svc:/app
+      - go_modules_auth:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  profile-svc:
+    build:
+      context: ./services/profile-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    container_name: finhub-profile-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/profile-svc:/app
+      - go_modules_profile:/go/pkg/mod
+    networks:
+      - finhub-net
+
+  expense-svc:
+    build:
+      context: ./services/expense-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    container_name: finhub-expense-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=expense
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/expense-svc:/app
+      - go_modules_expense:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  budget-svc:
+    build:
+      context: ./services/budget-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    container_name: finhub-budget-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=budget
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/budget-svc:/app
+      - go_modules_budget:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+      - kafka
+
+  notification-svc:
+    build:
+      context: ./services/notification-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    container_name: finhub-notification-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=notifications
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/notification-svc:/app
+      - go_modules_notification:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  obsidian-sync-svc:
+    build:
+      context: ./services/obsidian-sync-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    container_name: finhub-obsidian-sync-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=notes
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/obsidian-sync-svc:/app
+      - go_modules_obsidian:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+      - rabbitmq
+
+  #-------------------------------------------------
+  # Infrastructure services
+  #-------------------------------------------------
   # PostgreSQL
   postgres:
     image: postgres:16-alpine
@@ -302,71 +465,10 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backend для разработки
-  backend:
-    build:
-      context: .
-      dockerfile: docker/dev/backend.Dockerfile
-    container_name: finhub-backend
-    restart: unless-stopped
-    ports:
-      - "8088:8088"    # API (изменил порт, так как 8080 занят Kafka UI)
-      - "2345:2345"    # Delve debugger
-    environment:
-      - GO_ENV=development
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER:-finhub}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:-finhub_password}
-      - DB_NAME=${POSTGRES_DB:-finhub_db}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_password}
-      - KAFKA_BROKERS=kafka:29092
-      - RABBITMQ_URL=amqp://${RABBITMQ_DEFAULT_USER:-finhub}:${RABBITMQ_DEFAULT_PASS:-rabbitmq_password}@rabbitmq:5672/
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
-      - JAEGER_AGENT_HOST=jaeger
-      - JAEGER_AGENT_PORT=6831
-    volumes:
-      - .:/app
-      - go_modules:/go/pkg/mod
-    networks:
-      - finhub-net
-    depends_on:
-      - postgres
-      - redis
-      - kafka
-      - rabbitmq
-      - minio
-      - jaeger
-    command: air
-
-  # Frontend для разработки (если понадобится)
-  frontend:
-    build:
-      context: .
-      dockerfile: docker/dev/frontend.Dockerfile
-    container_name: finhub-frontend
-    restart: unless-stopped
-    ports:
-      - "3001:3000"    # Dev server
-      - "5173:5173"    # Vite HMR
-    environment:
-      - NODE_ENV=development
-      - VITE_API_URL=http://localhost:8088
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    networks:
-      - finhub-net
-    depends_on:
-      - backend
-    profiles:
-      - frontend  # Запускается только если указан профиль
-
+  #-------------------------------------------------
   # UI Tools
+  #-------------------------------------------------
+
   pgadmin:
     image: dpage/pgadmin4:8.2
     container_name: finhub-pgadmin

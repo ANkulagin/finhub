@@ -2,28 +2,20 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-# Alertmanager configuration
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: []
-
-# Load rules once and periodically evaluate them
-rule_files: []
-
-# Scrape configurations
 scrape_configs:
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # Node exporter (если будет добавлен)
-  - job_name: 'node'
+  # Scrape config for all Go microservices
+  - job_name: 'finhub-services'
     static_configs:
-      - targets: []
-
-  # Go приложения (будут добавлены позже)
-  - job_name: 'go-services'
-    static_configs:
-      - targets: []
+      - targets:
+          - 'gateway-svc:8080'
+          - 'auth-svc:8080'
+          - 'profile-svc:8080'
+          - 'expense-svc:8080'
+          - 'budget-svc:8080'
+          - 'notification-svc:8080'
+          - 'obsidian-sync-svc:8080'
