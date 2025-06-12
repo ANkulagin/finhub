@@ -87,6 +87,8 @@ services:
     build:
       context: ./services/auth-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
     ports:
       - "50052:50052" # gRPC Gateway
     container_name: finhub-auth-svc
@@ -116,6 +118,8 @@ services:
     build:
       context: ./services/profile-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
     ports:
       - "50052:50052" # gRPC Gateway
     container_name: finhub-profile-svc
@@ -138,6 +142,8 @@ services:
     build:
       context: ./services/expense-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
     ports:
       - "50053:50053" # gRPC Gateway
     container_name: finhub-expense-svc
@@ -165,6 +171,8 @@ services:
     build:
       context: ./services/budget-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
     ports:
       - "50054:50054" # gRPC Gateway
     container_name: finhub-budget-svc
@@ -192,6 +200,8 @@ services:
     build:
       context: ./services/notification-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
     ports:
       - "50055:50055" # gRPC Gateway
     container_name: finhub-notification-svc
@@ -219,6 +229,8 @@ services:
     build:
       context: ./services/obsidian-sync-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
     ports:
       - "50056:50056" # gRPC Gateway
     container_name: finhub-obsidian-sync-svc
