@@ -13,7 +13,6 @@
 
 # Directories
 /bin/
-/pkg/
 /var/
 
 # Go modules

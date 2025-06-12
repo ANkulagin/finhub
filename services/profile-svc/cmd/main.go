@@ -7,8 +7,8 @@ import (
 )
 
 func main() {
-	port := "8080"
-	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+	port := "50052"
+	http.HandleFunc("/ping", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprintln(w, "✅ Hello from profile-svc!")
 	})
 

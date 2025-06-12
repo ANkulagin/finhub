@@ -59,8 +59,9 @@ services:
     container_name: finhub-gateway-svc
     restart: unless-stopped
     ports:
-      - "8088:8088"
+      - "8080:8080"
       - "2345:2345" # Delve debugger
+      - "50057:50057" # gRPC Gateway
     environment:
       - GO_ENV=development
       - JAEGER_AGENT_HOST=jaeger
@@ -76,11 +77,18 @@ services:
       - budget-svc
       - notification-svc
       - obsidian-sync-svc
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50057" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   auth-svc:
     build:
       context: ./services/auth-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    ports:
+      - "50052:50052" # gRPC Gateway
     container_name: finhub-auth-svc
     restart: unless-stopped
     environment:
@@ -98,11 +106,18 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50051" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   profile-svc:
     build:
       context: ./services/profile-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    ports:
+      - "50052:50052" # gRPC Gateway
     container_name: finhub-profile-svc
     restart: unless-stopped
     environment:
@@ -113,11 +128,18 @@ services:
       - go_modules_profile:/go/pkg/mod
     networks:
       - finhub-net
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50052" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   expense-svc:
     build:
       context: ./services/expense-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    ports:
+      - "50053:50053" # gRPC Gateway
     container_name: finhub-expense-svc
     restart: unless-stopped
     environment:
@@ -133,11 +155,18 @@ services:
     depends_on:
       - postgres
       - rabbitmq
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50053" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   budget-svc:
     build:
       context: ./services/budget-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    ports:
+      - "50054:50054" # gRPC Gateway
     container_name: finhub-budget-svc
     restart: unless-stopped
     environment:
@@ -153,11 +182,18 @@ services:
     depends_on:
       - postgres
       - kafka
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50054" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   notification-svc:
     build:
       context: ./services/notification-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    ports:
+      - "50055:50055" # gRPC Gateway
     container_name: finhub-notification-svc
     restart: unless-stopped
     environment:
@@ -173,11 +209,18 @@ services:
     depends_on:
       - postgres
       - rabbitmq
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50055" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   obsidian-sync-svc:
     build:
       context: ./services/obsidian-sync-svc
       dockerfile: ../../docker/dev/service.Dockerfile
+    ports:
+      - "50056:50056" # gRPC Gateway
     container_name: finhub-obsidian-sync-svc
     restart: unless-stopped
     environment:
@@ -193,6 +236,11 @@ services:
     depends_on:
       - postgres
       - rabbitmq
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50056" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   #-------------------------------------------------
   # Infrastructure services
@@ -514,7 +562,7 @@ services:
     container_name: finhub-kafka-ui
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8088:8088"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092

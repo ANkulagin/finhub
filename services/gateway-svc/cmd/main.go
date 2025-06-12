@@ -10,10 +10,10 @@ import (
 func main() {
 	port := "8088"
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprintln(w, "✅ Hello from gateway-svc!")
+		_, _ = fmt.Fprintln(w, "✅ FinHub services started!")
 	})
 
-	http.HandleFunc("/budget", func(w http.ResponseWriter, _ *http.Request) {
+	http.HandleFunc("/ping", func(w http.ResponseWriter, _ *http.Request) {
 
 		resp, err := http.Get("http://budget-svc:8088/")
 		if err != nil {

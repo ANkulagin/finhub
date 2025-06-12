@@ -2,7 +2,13 @@
   "required_status_checks": {
     "strict": true,
     "checks": [
-      { "context": "build-and-test / test" }
+      { "context": "build-and-test / test (auth-svc)" },
+      { "context": "build-and-test / test (gateway-svc)" },
+      { "context": "build-and-test / test (notification-svc)" },
+      { "context": "build-and-test / test (obsidian-sync-svc)" },
+      { "context": "build-and-test / test (budget-svc)" },
+      { "context": "build-and-test / test (expense-svc)" },
+      { "context": "build-and-test / test (profile-svc)" }
     ]
   },
   "enforce_admins": true,
