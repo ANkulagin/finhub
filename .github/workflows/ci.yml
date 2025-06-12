@@ -8,6 +8,16 @@ jobs:
   test:
     name: build-and-test / test
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - auth-svc
+          - budget-svc
+          - expense-svc
+          - gateway-svc
+          - notification-svc
+          - obsidian-sync-svc
+          - profile-svc
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,9 +31,12 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.1.6
 
-      - name: Lint
+      - name: Lint ${{ matrix.service }}
         run: |
-          $(go env GOPATH)/bin/golangci-lint run
+          cd services/${{ matrix.service }}
+          $(go env GOPATH)/bin/golangci-lint run --timeout=5m ./...
 
-      - name: Run tests
-        run: go test ./...
+      - name: Test ${{ matrix.service }}
+        run: |
+          cd services/${{ matrix.service }}
+          go test ./...
