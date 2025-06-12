@@ -1,0 +1,592 @@
+networks:
+  finhub-net:
+    driver: bridge
+    name: finhub-network
+
+volumes:
+  # Data volumes
+  postgres_data:
+    name: finhub_postgres_data
+  redis_data:
+    name: finhub_redis_data
+  kafka_data:
+    name: finhub_kafka_data
+  rabbitmq_data:
+    name: finhub_rabbitmq_data
+  prometheus_data:
+    name: finhub_prometheus_data
+  grafana_data:
+    name: finhub_grafana_data
+  loki_data:
+    name: finhub_loki_data
+  minio_data:
+    name: finhub_minio_data
+  jaeger_data:
+    name: finhub_jaeger_data
+  pgadmin_data:
+    name: finhub_pgadmin_data
+  redisinsight_data:
+    name: finhub_redisinsight_data
+  zookeeper_data:
+    name: finhub_zookeeper_data
+  zookeeper_log_data:
+    name: finhub_zookeeper_log_data
+  # Go modules cache for each service
+  go_modules_auth:
+    name: finhub_go_modules_auth
+  go_modules_profile:
+    name: finhub_go_modules_profile
+  go_modules_expense:
+    name: finhub_go_modules_expense
+  go_modules_budget:
+    name: finhub_go_modules_budget
+  go_modules_notification:
+    name: finhub_go_modules_notification
+  go_modules_obsidian:
+    name: finhub_go_modules_obsidian
+  go_modules_gateway:
+    name: finhub_go_modules_gateway
+
+services:
+  #-------------------------------------------------
+  # Main application services
+  #-------------------------------------------------
+
+  gateway-svc:
+    build:
+      context: ./services/gateway-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    container_name: finhub-gateway-svc
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "2345:2345" # Delve debugger
+      - "50057:50057" # gRPC Gateway
+    environment:
+      - GO_ENV=development
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/gateway-svc:/app
+      - go_modules_gateway:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - auth-svc
+      - profile-svc
+      - expense-svc
+      - budget-svc
+      - notification-svc
+      - obsidian-sync-svc
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50057" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-svc:
+    build:
+      context: ./services/auth-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
+    ports:
+      - "50051:50051" # gRPC Gateway
+    container_name: finhub-auth-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=auth
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/auth-svc:/app
+      - go_modules_auth:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50051" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  profile-svc:
+    build:
+      context: ./services/profile-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
+    ports:
+      - "50052:50052" # gRPC Gateway
+    container_name: finhub-profile-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/profile-svc:/app
+      - go_modules_profile:/go/pkg/mod
+    networks:
+      - finhub-net
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50052" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  expense-svc:
+    build:
+      context: ./services/expense-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
+    ports:
+      - "50053:50053" # gRPC Gateway
+    container_name: finhub-expense-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=expense
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/expense-svc:/app
+      - go_modules_expense:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+      - rabbitmq
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50053" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  budget-svc:
+    build:
+      context: ./services/budget-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
+    ports:
+      - "50054:50054" # gRPC Gateway
+    container_name: finhub-budget-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=budget
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/budget-svc:/app
+      - go_modules_budget:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+      - kafka
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50054" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  notification-svc:
+    build:
+      context: ./services/notification-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
+    ports:
+      - "50055:50055" # gRPC Gateway
+    container_name: finhub-notification-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=notifications
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/notification-svc:/app
+      - go_modules_notification:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+      - rabbitmq
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50055" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  obsidian-sync-svc:
+    build:
+      context: ./services/obsidian-sync-svc
+      dockerfile: ../../docker/dev/service.Dockerfile
+    expose:
+      - "8089"  # HTTP health check port
+    ports:
+      - "50056:50056" # gRPC Gateway
+    container_name: finhub-obsidian-sync-svc
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - DB_HOST=postgres
+      - DB_SCHEMA=notes
+      - JAEGER_AGENT_HOST=jaeger
+    volumes:
+      - ./services/obsidian-sync-svc:/app
+      - go_modules_obsidian:/go/pkg/mod
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+      - rabbitmq
+    healthcheck:
+      test: [ "CMD", "grpc_health_probe", "-addr=:50056" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  #-------------------------------------------------
+  # Infrastructure services
+  #-------------------------------------------------
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: finhub-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-finhub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finhub_password}
+      POSTGRES_DB: ${POSTGRES_DB:-finhub_db}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finhub} -d ${POSTGRES_DB:-finhub_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: finhub-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password} --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # Zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: finhub-zookeeper
+    restart: unless-stopped
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log_data:/var/lib/zookeeper/log
+    networks:
+      - finhub-net
+    healthcheck:
+      test: [ "CMD-SHELL", "nc -z localhost 2181 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: finhub-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID:-1}
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT:-zookeeper:2181}
+      KAFKA_LISTENERS: ${KAFKA_LISTENERS:-PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092}
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS:-PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:-PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT}
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Schema Registry
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: finhub-schema-registry
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: ${SCHEMA_REGISTRY_HOST_NAME:-schema-registry}
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: ${SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS:-kafka:29092}
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: finhub-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-finhub}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-rabbitmq_password}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: finhub-prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: finhub-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - finhub-net
+    depends_on:
+      - prometheus
+      - loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Loki
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: finhub-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./configs/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Jaeger
+  jaeger:
+    image: jaegertracing/all-in-one:1.52
+    container_name: finhub-jaeger
+    restart: unless-stopped
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "${JAEGER_PORT:-16686}:16686"
+      - "14268:14268"
+      - "14250:14250"
+      - "9411:9411"
+    environment:
+      COLLECTOR_ZIPKIN_HOST_PORT: ":9411"
+      COLLECTOR_OTLP_ENABLED: "true"
+    volumes:
+      - jaeger_data:/tmp
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:14269/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO
+  minio:
+    image: minio/minio:RELEASE.2023-12-20T01-00-02Z
+    container_name: finhub-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - finhub-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  #-------------------------------------------------
+  # UI Tools
+  #-------------------------------------------------
+
+  pgadmin:
+    image: dpage/pgadmin4:8.2
+    container_name: finhub-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@finhub.local
+      PGADMIN_DEFAULT_PASSWORD: pgadmin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - finhub-net
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    container_name: finhub-redisinsight
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - redisinsight_data:/db
+    networks:
+      - finhub-net
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: finhub-kafka-ui
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+    networks:
+      - finhub-net
+    depends_on:
+      - kafka
+      - schema-registry
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M

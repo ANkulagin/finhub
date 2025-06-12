@@ -1,0 +1,23 @@
+# Этот файл предназначен для локальных переопределений
+# Скопируйте его как docker-compose.override.yml и настройте под себя
+# docker-compose.override.yml добавлен в .gitignore
+
+version: '3.8'
+
+services:
+  # Пример переопределения портов
+  postgres:
+    ports:
+      - "5433:5432" # Если порт 5432 занят
+
+  # Пример добавления дополнительных сервисов
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: finhub-pgadmin
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@finhub.local
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #   ports:
+  #     - "5050:80"
+  #   networks:
+  #     - finhub-net

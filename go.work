@@ -1,0 +1,11 @@
+go 1.24
+
+use (
+	./services/auth-svc
+	./services/budget-svc
+	./services/expense-svc
+	./services/gateway-svc
+	./services/notification-svc
+	./services/obsidian-sync-svc
+	./services/profile-svc
+)

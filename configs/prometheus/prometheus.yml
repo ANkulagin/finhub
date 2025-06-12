@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape config for all Go microservices
+  - job_name: 'finhub-services'
+    static_configs:
+      - targets:
+          - 'gateway-svc:8080'
+          - 'auth-svc:8080'
+          - 'profile-svc:8080'
+          - 'expense-svc:8080'
+          - 'budget-svc:8080'
+          - 'notification-svc:8080'
+          - 'obsidian-sync-svc:8080'

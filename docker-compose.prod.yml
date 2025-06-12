@@ -1,0 +1,36 @@
+# Переопределения для production окружения
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/prod/backend.Dockerfile
+    restart: always
+    environment:
+      - GO_ENV=production
+    command: ["./app"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Отключаем UI инструменты в production
+  pgadmin:
+    profiles:
+      - never
+
+  redisinsight:
+    profiles:
+      - never
+
+  kafka-ui:
+    profiles:
+      - never
