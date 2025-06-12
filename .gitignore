@@ -14,7 +14,7 @@
 # Directories
 /bin/
 /var/
-/tmp/
+tmp/
 
 # Go modules
 # Uncomment the following line if you want to ignore the vendor directory
