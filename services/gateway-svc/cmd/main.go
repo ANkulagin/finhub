@@ -27,7 +27,7 @@ type HealthResponse struct {
 }
 
 func main() {
-	port := "8088"
+	port := "8080"
 
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprintln(w, "✅ FinHub Gateway Service")

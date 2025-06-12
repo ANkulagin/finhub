@@ -90,7 +90,7 @@ services:
     expose:
       - "8089"  # HTTP health check port
     ports:
-      - "50052:50052" # gRPC Gateway
+      - "50051:50051" # gRPC Gateway
     container_name: finhub-auth-svc
     restart: unless-stopped
     environment:
